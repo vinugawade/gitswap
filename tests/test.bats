@@ -11,12 +11,21 @@ initialize_environment() {
   # Set up necessary environment variables for the test
   export GIT_USER_FILE="$HOME/.git-user"
   export gitswap="$( cd "$( dirname "$BATS_TEST_FILENAME" )" >/dev/null 2>&1 && pwd )/../gitswap"
+
   mkdir -p "$BATS_TMPDIR"
   touch "$GIT_USER_FILE"
   chmod 600 "$GIT_USER_FILE"
+
+  # Check if ~/.gitconfig exists before backing it up
+  if [[ -f "$HOME/.gitconfig" ]]; then
+    cp "$HOME/.gitconfig" "$HOME/.gitconfig.bak"
+  else
+    echo "No .gitconfig found, proceeding without backup"
+  fi
+
+  # Set up gitswap binary
   cp $gitswap /usr/local/bin/gitswap
   chmod +x /usr/local/bin/gitswap
-  cp ~/.gitconfig ~/.gitconfig.bak
 }
 
 prepare_test_data() {
