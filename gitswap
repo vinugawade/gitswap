@@ -5,55 +5,51 @@ GIT_USER_FILE="$HOME/.git-user"
 
 # Function to display usage
 usage() {
-    echo "Usage: gitswap [<username> <email>] [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  --switch, -s        Switch to a new or existing Git user"
-    echo "  --add, -a           Add a new Git user to the list"
-    echo "  --remove, -r        Remove a Git user from the list"
-    echo "  --show, -sh         Display the current Git user configuration"
-    echo ""
-    echo "If no arguments or options are provided, it lists all saved Git users."
-    echo ""
-    echo "Examples:"
-    echo "  gitswap                     Lists all saved Git users."
-    echo "  gitswap <username> <email>  Switches to the specified Git user."
-    echo "                              If the user does not exist, it adds the user and switches to it."
-    echo "  gitswap --switch            Prompts to select a user from the saved list or add a new one."
-    echo "  gitswap --add               Prompts to add a new Git user to the saved list."
-    echo "  gitswap --remove            Prompts to remove a user from the saved list."
-    echo "  gitswap --show              Displays the current Git user configuration."
+    cat <<EOF
+Usage: gitswap [<username> <email>] [OPTIONS]
+
+Options:
+  --switch, -s        Switch to a new or existing Git user
+  --add, -a           Add a new Git user to the list
+  --remove, -r        Remove a Git user from the list
+  --show, -sh         Display the current Git user configuration
+
+If no arguments or options are provided, it lists all saved Git users.
+
+Examples:
+  gitswap                     Lists all saved Git users.
+  gitswap <username> <email>  Switches to the specified Git user.
+                              If the user does not exist, it adds the user and switches to it.
+  gitswap --switch            Prompts to select a user from the saved list or add a new one.
+  gitswap --add               Prompts to add a new Git user to the saved list.
+  gitswap --remove            Prompts to remove a user from the saved list.
+  gitswap --show              Displays the current Git user configuration.
+EOF
 }
 
 # Ensure the Git user file exists
 initialize_user_file() {
-    if [[ ! -f "$GIT_USER_FILE" ]]; then
-        touch "$GIT_USER_FILE"
-        chmod 600 "$GIT_USER_FILE"
-    fi
+    [[ ! -f "$GIT_USER_FILE" ]] && touch "$GIT_USER_FILE" && chmod 600 "$GIT_USER_FILE"
 }
 
 # Function to save the current Git user configuration
 save_current_user() {
-    local name=$(git config --global user.name 2>/dev/null)
-    local email=$(git config --global user.email 2>/dev/null)
+    local name email
+    name=$(git config --global user.name 2>/dev/null)
+    email=$(git config --global user.email 2>/dev/null)
 
     if [[ -n "$name" && -n "$email" ]]; then
-        grep -q "^current=" "$GIT_USER_FILE" && sed -i '' "/^current=/d" "$GIT_USER_FILE"  # macOS compatible
+        sed -i '' "/^current=/d" "$GIT_USER_FILE"  # macOS compatible
         echo "current=user.name=$name,user.email=$email" >> "$GIT_USER_FILE"
     fi
 }
 
 # Function to add a new Git user
 add_user() {
-    local new_name="$1"
-    local new_email="$2"
+    local new_name="$1" new_email="$2"
 
-    if [[ -z "$new_name" || -z "$new_email" ]]; then
-        echo "Adding a new Git user..."
-        read -p "Enter user name: " new_name
-        read -p "Enter user email: " new_email
-    fi
+    # Prompt for input if not provided
+    [[ -z "$new_name" || -z "$new_email" ]] && read -p "Enter user name: " new_name && read -p "Enter user email: " new_email
 
     if [[ -n "$new_name" && -n "$new_email" ]]; then
         if grep -q "user.name=$new_name,user.email=$new_email" "$GIT_USER_FILE"; then
@@ -69,21 +65,19 @@ add_user() {
 
 # Automatically add the currently configured Git user to the .git-user file if not already present
 auto_add_current_user() {
-    local name=$(git config --global user.name 2>/dev/null)
-    local email=$(git config --global user.email 2>/dev/null)
+    local name email
+    name=$(git config --global user.name 2>/dev/null)
+    email=$(git config --global user.email 2>/dev/null)
 
-    if [[ -n "$name" && -n "$email" ]]; then
-        if ! grep -q "user.name=$name,user.email=$email" "$GIT_USER_FILE"; then
-            echo "Automatically adding current Git user: $name <$email>"
-            echo "user.name=$name,user.email=$email" >> "$GIT_USER_FILE"
-        fi
+    if [[ -n "$name" && -n "$email" && ! $(grep -q "user.name=$name,user.email=$email" "$GIT_USER_FILE") ]]; then
+        echo "Automatically adding current Git user: $name <$email>"
+        echo "user.name=$name,user.email=$email" >> "$GIT_USER_FILE"
     fi
 }
 
 # Function to switch to a specified Git user
 switch_user() {
-    local name="$1"
-    local email="$2"
+    local name="$1" email="$2"
 
     if [[ -z "$name" || -z "$email" ]]; then
         echo "Available users:"
@@ -96,10 +90,6 @@ switch_user() {
             return
         elif [[ "$choice" =~ ^[0-9]+$ ]]; then
             local selected_user=$(grep -v "^current=" "$GIT_USER_FILE" | sed -n "${choice}p")
-            if [[ -z "$selected_user" ]]; then
-                echo "Invalid selection."
-                return
-            fi
             name=$(echo "$selected_user" | cut -d ',' -f 1 | cut -d '=' -f 2)
             email=$(echo "$selected_user" | cut -d ',' -f 2 | cut -d '=' -f 2)
         else
@@ -108,9 +98,7 @@ switch_user() {
         fi
     fi
 
-    if grep -q "user.name=$name,user.email=$email" "$GIT_USER_FILE"; then
-        echo "Switching to user: $name <$email>"
-    else
+    if ! grep -q "user.name=$name,user.email=$email" "$GIT_USER_FILE"; then
         echo "User $name <$email> not found. Adding to the list."
         add_user "$name" "$email"
     fi
@@ -133,8 +121,9 @@ list_users() {
 
 # Function to show the current Git user configuration
 show_current_user() {
-    local name=$(git config --global user.name 2>/dev/null)
-    local email=$(git config --global user.email 2>/dev/null)
+    local name email
+    name=$(git config --global user.name 2>/dev/null)
+    email=$(git config --global user.email 2>/dev/null)
 
     if [[ -n "$name" && -n "$email" ]]; then
         echo "Current Git user: $name <$email>"
@@ -145,33 +134,30 @@ show_current_user() {
 
 # Function to remove a Git user
 remove_user() {
-    # Check if there are users to remove
-    local user_count=$(grep -v "^current=" "$GIT_USER_FILE" | wc -l)
+    local user_count choice selected_user
+    user_count=$(grep -v "^current=" "$GIT_USER_FILE" | wc -l)
 
     if [[ "$user_count" -eq 0 ]]; then
         echo "No users available to remove."
-        exit 0
         return
     fi
 
     if [[ -z "$1" ]]; then
         echo "Available users:"
         grep -v "^current=" "$GIT_USER_FILE" | nl
-        echo "---"
         read -p "Enter the user number to remove: " choice
     else
         choice="$1"
     fi
 
     if [[ "$choice" =~ ^[0-9]+$ ]]; then
-        local selected_user=$(grep -v "^current=" "$GIT_USER_FILE" | sed -n "${choice}p")
-        if [[ -z "$selected_user" ]]; then
+        selected_user=$(grep -v "^current=" "$GIT_USER_FILE" | sed -n "${choice}p")
+        if [[ -n "$selected_user" ]]; then
+            sed -i '' "/$(echo "$selected_user" | sed 's/[&/\]/\\&/g')/d" "$GIT_USER_FILE"
+            echo "User removed."
+        else
             echo "Invalid selection"
-            return
         fi
-        # Use a different delimiter in sed (e.g., #) to handle special characters in the email
-        sed -i '' "/user.name=$(echo "$selected_user" | cut -d ',' -f 1 | cut -d '=' -f 2),user.email=$(echo "$selected_user" | cut -d ',' -f 2 | cut -d '=' -f 2)/d" "$GIT_USER_FILE"
-        echo "User removed."
     else
         echo "Invalid input."
     fi
@@ -187,26 +173,14 @@ fi
 
 if [[ $# -eq 0 ]]; then
     list_users
-    exit 0
 elif [[ $# -eq 2 ]]; then
     switch_user "$1" "$2"
-    exit 0
+else
+    case "$1" in
+        --switch | -s) switch_user ;;
+        --show | -sh) show_current_user ;;
+        --add | -a) add_user ;;
+        --remove | -r) remove_user ;;
+        *) usage ;;
+    esac
 fi
-
-case "$1" in
-    --switch | -s)
-        switch_user
-        ;;
-    --show | -sh)
-        show_current_user
-        ;;
-    --add | -a)
-        add_user
-        ;;
-    --remove | -r)
-        remove_user
-        ;;
-    *)
-        usage
-        ;;
-esac
